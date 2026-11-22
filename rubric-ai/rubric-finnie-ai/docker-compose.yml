@@ -14,7 +14,11 @@ services:
       - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_SERVER_AUTH_TOKEN}
       - CHROMA_AUTH_TOKEN_TRANSPORT_HEADER=X-Chroma-Token
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')\" || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; req = urllib.request.Request('http://localhost:8000/api/v2/heartbeat', headers={'X-Chroma-Token': '${CHROMA_SERVER_AUTH_TOKEN:-}'}); urllib.request.urlopen(req)\" || exit 1"
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
