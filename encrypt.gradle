@@ -1,0 +1,45 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.jasypt:jasypt:1.9.3'
+    }
+}
+
+import org.jasypt.encryption.pbe.StandardPBEStringEncryptor
+import org.jasypt.iv.RandomIvGenerator
+
+// Capture properties safely at configuration time
+def key = project.hasProperty('key') ? project.property('key') as String : null
+def txt = project.hasProperty('txt') ? project.property('txt') as String : null
+
+tasks.register('encryptPassword') {
+    group = 'Security'
+    description = 'Encrypts a database password using Jasypt with PBEWithHMACSHA512AndAES_256.'
+
+    doLast {
+        if (!key) {
+            throw new GradleException("Jasypt key is required. Pass -PKey=<key>.")
+        }
+        if (!txt) {
+            throw new GradleException("Text is required. Pass -Ptxt=<txt>.")
+        }
+
+        def encryptor = new StandardPBEStringEncryptor()
+        encryptor.setPassword(key)
+        encryptor.setAlgorithm("PBEWithHMACSHA512AndAES_256")
+        encryptor.setIvGenerator(new RandomIvGenerator())
+
+        def encrypted = encryptor.encrypt(txt)
+        def decrypted = encryptor.decrypt(encrypted)
+
+        println "\n=============================================="
+        println " Jasypt Encryption Result (Gradle Task)"
+        println "=============================================="
+        println " Algorithm : PBEWithHMACSHA512AndAES_256"
+        println " Encrypted : ENC(${encrypted})"
+        println " Decrypted : DEC(${decrypted})"
+        println "==============================================\n"
+    }
+}

@@ -1,0 +1,78 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-operational-state
+      author: vinay.revankar
+      changes:
+        - createTable:
+            tableName: EVENT_OUTBOX
+            columns:
+              - column:
+                  name: EVENT_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: ISIN
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PAYLOAD
+                  type: JSON
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: STATUS
+                  type: VARCHAR2(10)
+                  defaultValue: 'PENDING'
+                  constraints:
+                    nullable: false
+                    check: "STATUS IN ('PENDING', 'PROCESSING', 'PROCESSED', 'FAILED')"
+
+        - createTable:
+            tableName: SECURITY_INGESTION_STATE
+            columns:
+              - column:
+                  name: JOB_NM
+                  type: VARCHAR2(30)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: TRADE_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 005-create-operational-indexes
+      author: vinay.revankar
+      changes:
+        - createIndex:
+            tableName: EVENT_OUTBOX
+            indexName: IDX__EVENT_OUTBOX__ISIN
+            columns:
+              - column:
+                  name: ISIN
+        - createIndex:
+            tableName: EVENT_OUTBOX
+            indexName: IDX__EVENT_OUTBOX__STATUS__CRT_DTTM
+            columns:
+              - column:
+                  name: STATUS
+              - column:
+                  name: CRT_DTTM

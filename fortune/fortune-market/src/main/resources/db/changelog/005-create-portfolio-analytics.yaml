@@ -1,0 +1,203 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-create-portfolio-analytics
+      author: vinay.revankar
+      changes:
+        - createTable:
+            tableName: PF_SNAPSHOT
+            columns:
+              - column:
+                  name: PFOLIO_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: VAL_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CURR
+                  type: VARCHAR2(3)
+                  defaultValue: 'INR'
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TTL_INV
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TTL_VAL
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: DLY_PNL
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TTL_PNL
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TTL_INV_USD
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TTL_VAL_USD
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: DLY_PNL_USD
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TTL_PNL_USD
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CAGR
+                  type: NUMBER(6, 2)
+              - column:
+                  name: XIRR
+                  type: NUMBER(6, 2)
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: PF_SNAPSHOT
+            columnNames: PFOLIO_ID, VAL_DT
+            constraintName: PK__PF_SNAPSHOT__PFOLIO_ID__VAL_DT
+
+        - addForeignKeyConstraint:
+            baseTableName: PF_SNAPSHOT
+            baseColumnNames: PFOLIO_ID
+            constraintName: FK__PF_SNAPSHOT__PORTFOLIO__PFOLIO_ID
+            referencedTableName: PORTFOLIO
+            referencedColumnNames: PFOLIO_ID
+            onDelete: CASCADE
+
+        - createTable:
+            tableName: TRADE_HIST
+            columns:
+              - column:
+                  name: TRADE_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: PFOLIO_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SALE_CN_NO
+                  type: VARCHAR2(10)
+                  defaultValue: 'UNKNOWN'
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ISIN
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: QTY
+                  type: NUMBER(12, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PURCH_CN_NO
+                  type: VARCHAR2(10)
+                  defaultValue: 'UNKNOWN'
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PURCH_PR
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PURCH_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SALE_PR
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SALE_DT
+                  type: DATE
+                  defaultValueComputed: TRUNC(SYSDATE)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: REALIZED_PNL
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: TRADE_HIST
+            baseColumnNames: PFOLIO_ID
+            constraintName: FK__TRADE_HIST__PORTFOLIO__PFOLIO_ID
+            referencedTableName: PORTFOLIO
+            referencedColumnNames: PFOLIO_ID
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: TRADE_HIST
+            baseColumnNames: ISIN
+            constraintName: FK__TRADE_HIST__SECURITY_MASTER__ISIN
+            referencedTableName: SECURITY_MASTER
+            referencedColumnNames: ISIN
+
+  - changeSet:
+      id: 007-create-analytics-indexes
+      author: vinay.revankar
+      changes:
+        - createIndex:
+            tableName: PF_SNAPSHOT
+            indexName: IDX__PF_SNAPSHOT__VAL_DT
+            columns:
+              - column:
+                  name: VAL_DT
+        - createIndex:
+            tableName: TRADE_HIST
+            indexName: IDX__TRADE_HIST__PFOLIO_ID
+            columns:
+              - column:
+                  name: PFOLIO_ID
+        - createIndex:
+            tableName: TRADE_HIST
+            indexName: IDX__TRADE_HIST__ISIN
+            columns:
+              - column:
+                  name: ISIN
+        - createIndex:
+            tableName: TRADE_HIST
+            indexName: IDX__TRADE_HIST__SALE_DT
+            columns:
+              - column:
+                  name: SALE_DT

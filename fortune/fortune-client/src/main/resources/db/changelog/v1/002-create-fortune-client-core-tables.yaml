@@ -1,0 +1,225 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-fortune-client-core-tables
+      author: vrevankar
+      changes:
+        - createTable:
+            tableName: CLIENT
+            columns:
+              - column:
+                  name: CLIENT_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__CLIENT
+              - column:
+                  name: DP_ID
+                  type: VARCHAR2(8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CLIENT_CD
+                  type: VARCHAR2(8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TRADE_CD
+                  type: VARCHAR2(8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: FIRST_NM
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: LAST_NM
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PH_NO
+                  type: VARCHAR2(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: EMAIL
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PASSWORD
+                  type: VARCHAR2(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ACC_TYP
+                  type: VARCHAR2(3)
+                  defaultValue: 'NRO'
+                  constraints:
+                    nullable: false
+                    check: "ACC_TYP IN ('NRO', 'NRE', 'RI')"
+              - column:
+                  name: PIS
+                  type: VARCHAR2(1)
+                  defaultValue: 'N'
+                  constraints:
+                    nullable: false
+                    check: "PIS IN ('Y', 'N')"
+              - column:
+                  name: ADDR_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ACC_OPEN_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ACC_CLOSE_DT
+                  type: DATE
+                  constraints:
+                    nullable: true
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: CLIENT
+            baseColumnNames: ADDR_ID
+            constraintName: FK__CLIENT__ADDRESS
+            referencedTableName: ADDRESS
+            referencedColumnNames: ADDR_ID
+        - addUniqueConstraint:
+            tableName: CLIENT
+            columnNames: DP_ID, CLIENT_CD
+            constraintName: UK__CLIENT__DP_ID__CLIENT_CD
+        - addUniqueConstraint:
+            tableName: CLIENT
+            columnNames: DP_ID, TRADE_CD
+            constraintName: UK__CLIENT__DP_ID__TRADE__CD
+
+        - createTable:
+            tableName: CLIENT_IDENTITY
+            columns:
+              - column:
+                  name: CLIENT_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ID_TYP
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ID_VAL
+                  type: VARCHAR2(20)
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: CLIENT_IDENTITY
+            columnNames: CLIENT_ID, ID_TYP
+            constraintName: PK__CLIENT_IDENTITY
+
+        - addForeignKeyConstraint:
+            baseTableName: CLIENT_IDENTITY
+            baseColumnNames: CLIENT_ID
+            constraintName: FK__CLIENT_IDENTITY__CLIENT
+            referencedTableName: CLIENT
+            referencedColumnNames: CLIENT_ID
+
+        - addForeignKeyConstraint:
+            baseTableName: CLIENT_IDENTITY
+            baseColumnNames: ID_TYP
+            constraintName: FK__CLIENT_IDENTITY__ID_TYPE
+            referencedTableName: ID_TYPE
+            referencedColumnNames: ID_TYP
+
+        - createTable:
+            tableName: WALLET
+            columns:
+              - column:
+                  name: WALLET_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__WALLET
+              - column:
+                  name: CLIENT_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CURR
+                  type: VARCHAR2(3)
+                  defaultValue: 'INR'
+                  constraints:
+                    nullable: false
+              - column:
+                  name: BANK_NM
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ACC_TYP
+                  type: VARCHAR2(10)
+                  constraints:
+                    nullable: false
+                    check: "ACC_TYP IN ('SAVINGS', 'PIS')"
+              - column:
+                  name: ACC_NO
+                  type: VARCHAR2(14)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: BAL_AMT
+                  type: NUMBER(15, 4)
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: BLOCKED_AMT
+                  type: NUMBER(15, 4)
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: WALLET
+            baseColumnNames: CLIENT_ID
+            constraintName: FK__WALLET__CLIENT
+            referencedTableName: CLIENT
+            referencedColumnNames: CLIENT_ID
+
+        - addUniqueConstraint:
+            tableName: WALLET
+            columnNames: CLIENT_ID, BANK_NM, ACC_TYP, ACC_NO
+            constraintName: UK__WALLET__CLIENT_ID__BANK_NM__ACC_TYP__ACC_NO

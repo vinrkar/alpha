@@ -1,0 +1,11 @@
+http://fortune-market-local.alpha.com {
+    reverse_proxy 127.0.0.1:8081
+}
+
+http://fortune-broker-local.alpha.com {
+    reverse_proxy 127.0.0.1:8082
+}
+
+http://fortune-client-local.alpha.com {
+    reverse_proxy 127.0.0.1:8083
+}

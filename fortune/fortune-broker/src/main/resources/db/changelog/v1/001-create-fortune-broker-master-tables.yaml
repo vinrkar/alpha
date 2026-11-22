@@ -1,0 +1,149 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-fortune-address-table
+      author: vinay.revankar
+      comment: "Create ADDRESS table with contact details in FORTUNE_BROKER schema"
+      changes:
+        - createTable:
+            schemaName: FORTUNE_BROKER
+            tableName: ADDRESS
+            columns:
+              - column:
+                  name: ADDR_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__ADDRESS
+              - column:
+                  name: STREET
+                  type: VARCHAR2(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CITY
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PIN
+                  type: VARCHAR2(6)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ISO_CD
+                  type: VARCHAR2(6)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PH_NO
+                  type: VARCHAR2(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: EMAIL
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: STATUS
+                  type: VARCHAR2(20)
+                  defaultValue: 'PENDING_ENRICHMENT'
+                  constraints:
+                    nullable: false
+                    check: "STATUS IN ('PENDING_ENRICHMENT', 'COMPLETED', 'FAILED', 'FAILED_PERMANENTLY', 'UNKNOWN')"
+
+  - changeSet:
+      id: 002-create-fortune-broker-table
+      author: vinay.revankar
+      comment: "Create BROKER table with address foreign keys in FORTUNE_BROKER schema"
+      changes:
+        - createTable:
+            schemaName: FORTUNE_BROKER
+            tableName: BROKER
+            columns:
+              - column:
+                  name: DP_ID
+                  type: NUMBER(8,0)
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__BROKER
+              - column:
+                  name: NAME
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: BROKER_CD
+                  type: VARCHAR2(7)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PAN
+                  type: VARCHAR2(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ADDR_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SEC_ADDR_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SEBI_REGN_NO
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: WEB
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ACTIVE
+                  type: VARCHAR2(1)
+                  defaultValue: 'Y'
+                  constraints:
+                    nullable: false
+                    check: "ACTIVE IN ('Y', 'N')"
+              - column:
+                  name: STATUS
+                  type: VARCHAR2(20)
+                  defaultValue: 'PENDING_ENRICHMENT'
+                  constraints:
+                    nullable: false
+                    check: "STATUS IN ('PENDING_ENRICHMENT', 'PROCESSING', 'COMPLETED', 'FAILED')"
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: BROKER
+            baseTableSchemaName: FORTUNE_BROKER
+            baseColumnNames: ADDR_ID
+            constraintName: FK__BROKER__ADDRESS__ADDR_ID
+            referencedTableName: ADDRESS
+            referencedTableSchemaName: FORTUNE_BROKER
+            referencedColumnNames: ADDR_ID
+        - addForeignKeyConstraint:
+            baseTableName: BROKER
+            baseTableSchemaName: FORTUNE_BROKER
+            baseColumnNames: SEC_ADDR_ID
+            constraintName: FK__BROKER__ADDRESS__SEC_ADDR_ID
+            referencedTableName: ADDRESS
+            referencedTableSchemaName: FORTUNE_BROKER
+            referencedColumnNames: ADDR_ID

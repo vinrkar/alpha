@@ -1,0 +1,82 @@
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: rubric-finnie-ai-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/chroma_db:/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/data
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
+      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_SERVER_AUTH_TOKEN}
+      - CHROMA_AUTH_TOKEN_TRANSPORT_HEADER=X-Chroma-Token
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    container_name: rubric-finnie-ai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    container_name: rubric-finnie-ai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ~/.ollama:/root/.ollama
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: rubric-finnie-ai-app
+    ports:
+      - "8501:8501"
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - chroma_cache:/root/.cache/chroma
+    environment:
+      - PYTHONPATH=/app
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - CHROMA_SERVER_AUTH_TOKEN=${CHROMA_SERVER_AUTH_TOKEN}
+      - API_BASE_URL=${MODEL_BASE_URL:-}
+      - REDIS_URI=${REDIS_URI}
+    command: >
+      sh -c "python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8080 &
+             echo 'Waiting for FastAPI...' &&
+             while ! python -c \"import socket; s = socket.socket(); s.connect(('localhost', 8080))\" 2>/dev/null; do sleep 1; done &&
+             echo 'FastAPI is online! Starting Streamlit...' &&
+             streamlit run src/ui/app.py --server.port 8501 --server.address 0.0.0.0 --server.runOnSave true --client.toolbarMode minimal"
+    env_file:
+      - .env
+    depends_on:
+      chromadb:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  chroma_cache: {}

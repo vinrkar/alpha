@@ -1,0 +1,76 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-fortune-client-master-tables
+      author: vrevankar
+      changes:
+        - createTable:
+            tableName: ID_TYPE
+            columns:
+              - column:
+                  name: ID_TYP
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__ID_TYPE
+              - column:
+                  name: REGEX
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ACTIVE
+                  type: VARCHAR2(1)
+                  defaultValue: 'N'
+                  constraints:
+                    nullable: false
+                    check: "ACTIVE IN ('Y', 'N')"
+
+        - createTable:
+            tableName: ADDRESS
+            columns:
+              - column:
+                  name: ADDR_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK_ADDRESS
+              - column:
+                  name: STREET
+                  type: VARCHAR2(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CITY
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PIN
+                  type: VARCHAR2(6)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ISO_CD
+                  type: VARCHAR2(6)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PH_NO
+                  type: VARCHAR2(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: EMAIL
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: STATUS
+                  type: VARCHAR2(20)
+                  defaultValue: 'PENDING_ENRICHMENT'
+                  constraints:
+                    nullable: false
+                    check: "STATUS IN ('PENDING_ENRICHMENT', 'COMPLETED', 'FAILED', 'FAILED_PERMANENTLY', 'UNKNOWN')"

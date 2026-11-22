@@ -1,0 +1,7 @@
+fortune:
+  market:
+    base-url: "http://fortune-market-local.alpha.com"
+  broker:
+    base-url: "http://fortune-broker-local.alpha.com"
+  client:
+    base-url: "http://fortune-client-local.alpha.com"

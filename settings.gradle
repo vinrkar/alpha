@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { url = 'https://repo.spring.io/milestone' }
+    }
+}
+
+rootProject.name = 'alpha'
+
+include 'fortune:fortune-commons',
+        'fortune:fortune-market',
+        'fortune:fortune-broker',
+        'fortune:fortune-client'
+
+project(':fortune:fortune-commons').projectDir    = file('fortune/fortune-commons')
+project(':fortune:fortune-market').projectDir = file('fortune/fortune-market')
+project(':fortune:fortune-broker').projectDir = file('fortune/fortune-broker')
+project(':fortune:fortune-client').projectDir = file('fortune/fortune-client')

@@ -1,0 +1,107 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-fortune-data-tables
+      author: vinay.revankar
+      changes:
+        - createTable:
+            tableName: SECURITY
+            columns:
+              - column:
+                  name: ISIN
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TRADE_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PRICE
+                  type: NUMBER(18, 6)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: SECURITY
+            columnNames: ISIN, TRADE_DT
+            constraintName: PK__SECURITY__ISIN__TRADE_DT
+
+        - addForeignKeyConstraint:
+            baseTableName: SECURITY
+            baseColumnNames: ISIN
+            referencedTableName: SECURITY_MASTER
+            referencedColumnNames: ISIN
+            constraintName: FK__SECURITY__SECURITY_MASTER
+
+        - createTable:
+            tableName: EXCHANGE
+            columns:
+              - column:
+                  name: XCHG_ID
+                  type: NUMBER(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: XCHG_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: XCHG_RT
+                  type: NUMBER(18, 6)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: EXCHANGE
+            columnNames: XCHG_ID, XCHG_DT
+            constraintName: PK__EXCHANGE__XCHG
+
+        - addForeignKeyConstraint:
+            baseTableName: EXCHANGE
+            baseColumnNames: XCHG_ID
+            referencedTableName: EXCHANGE_MASTER
+            referencedColumnNames: XCHG_ID
+            constraintName: FK__EXCHANGE__EXCHANGE_MASTER
+
+  - changeSet:
+      id: 002-index-fortune-data-tables
+      author: vinay.revankar
+      changes:
+        - createIndex:
+            tableName: SECURITY
+            indexName: IDX__SECURITY__ISIN
+            columns:
+              - column:
+                  name: ISIN
+        - createIndex:
+            tableName: SECURITY
+            indexName: IDX__SECURITY__TRADE_DT
+            columns:
+              - column:
+                  name: TRADE_DT
+        - createIndex:
+            tableName: EXCHANGE
+            indexName: IDX__EXCHANGE__XCHG_ID
+            columns:
+              - column:
+                  name: XCHG_ID
+        - createIndex:
+            tableName: EXCHANGE
+            indexName: IDX__EXCHANGE__XCHG_DT
+            columns:
+              - column:
+                  name: XCHG_DT

@@ -1,0 +1,187 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-fortune-client-trading-tables
+      author: vrevankar
+      changes:
+        - createTable:
+            tableName: INVOICE
+            columns:
+              - column:
+                  name: INV_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__INVOICE
+              - column:
+                  name: CLIENT_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CNOTE_NUM
+                  type: VARCHAR2(7)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TRADE_DT
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: GST_INV_NO
+                  type: VARCHAR2(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: STT
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: IGST
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SEBI_CHRG
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: STAMP_DUTY
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: EXCHG_CHRG
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: DEBIT_TOTAL
+                  type: NUMBER(10, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CREDIT_TOTAL
+                  type: NUMBER(10, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TAXABLE_VAL
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: AMT_DUE
+                  type: NUMBER(10, 2)
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: INVOICE
+            baseColumnNames: CLIENT_ID
+            constraintName: FK__INVOICE__CLIENT
+            referencedTableName: CLIENT
+            referencedColumnNames: CLIENT_ID
+
+        - createTable:
+            tableName: TRADE_ORDER
+            columns:
+              - column:
+                  name: TRADE_ORDER_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK_TRADE_ORDER
+              - column:
+                  name: CLIENT_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ORDER_NO
+                  type: VARCHAR2(16)
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: TRADE_ORDER
+            baseColumnNames: CLIENT_ID
+            constraintName: FK__TRADE_ORDER__CLIENT
+            referencedTableName: CLIENT
+            referencedColumnNames: CLIENT_ID
+
+        - createTable:
+            tableName: TRADE
+            columns:
+              - column:
+                  name: TRADE_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK__TRADE
+              - column:
+                  name: ORDER_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: EXCHG
+                  type: VARCHAR2(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TRADE_NO
+                  type: VARCHAR2(9)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TRADE_TYP
+                  type: VARCHAR2(1)
+                  constraints:
+                    nullable: false
+                    check: "TRADE_TYP IN ('B', 'S')"
+              - column:
+                  name: ISIN
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: QTY
+                  type: NUMBER(10, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UNIT_PRC
+                  type: NUMBER(8, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UNIT_BRKG
+                  type: NUMBER(6, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: NET_RATE
+                  type: NUMBER(10, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: NET_TOTAL
+                  type: NUMBER(10, 2)
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: TRADE
+            baseColumnNames: ORDER_ID
+            constraintName: FK__TRADE__TRADE_ORDER
+            referencedTableName: TRADE_ORDER
+            referencedColumnNames: TRADE_ORDER_ID

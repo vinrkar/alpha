@@ -1,0 +1,78 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+
+    // Dynamically read the kafka version from the root libs.versions.toml file to prevent version drift
+    def tomlFile = rootProject.file('gradle/libs.versions.toml')
+    def kafkaVersion = "4.3.1" // fallback default
+    if (tomlFile.exists()) {
+        def match = tomlFile.text =~ /(?m)^\s*kafka\s*=\s*"([^"]+)"/
+        if (match) {
+            kafkaVersion = match[0][1]
+        }
+    }
+
+    dependencies {
+        classpath "org.apache.kafka:kafka-clients:${kafkaVersion}"
+        classpath 'org.yaml:snakeyaml:2.2'
+    }
+}
+
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.admin.AdminClientConfig
+import org.apache.kafka.clients.admin.NewTopic
+import org.apache.kafka.common.errors.TopicExistsException
+import org.yaml.snakeyaml.Yaml
+
+ext.configureKafkaTopicTask = { targetFile ->
+    // Evaluate project property at configuration time to avoid execution-time task.project deprecations
+    def resolvedBootstrapServers = project.hasProperty('kafkaBootstrapServers')
+            ? project.property('kafkaBootstrapServers')
+            : 'localhost:9092'
+
+    tasks.register('createKafkaTopics') {
+        group = "application"
+        description = "Creates Kafka topics declared in ${targetFile.name}"
+
+        doLast {
+            File yamlFile = targetFile
+            if (!yamlFile.exists()) {
+                throw new GradleException("Kafka topics YAML file not found at: ${yamlFile.absolutePath}")
+            }
+
+            def yaml = new Yaml()
+            Map<String, Object> parsedYaml = yaml.load(yamlFile.text)
+            def topicConfigs = parsedYaml?.kafka?.topics
+
+            if (!topicConfigs) {
+                println "No Kafka topics defined in YAML."
+                return
+            }
+
+            String bootstrapServers = resolvedBootstrapServers
+
+            Properties props = new Properties()
+            props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+
+            println "Connecting to Kafka cluster at [${bootstrapServers}]..."
+
+            try (AdminClient adminClient = AdminClient.create(props)) {
+                List<NewTopic> topics = topicConfigs.collect { cfg ->
+                    new NewTopic(cfg.name as String, cfg.partitions as int, (short)(cfg.replicas as int))
+                }
+
+                println "Provisioning ${topics.size()} topics from YAML..."
+                adminClient.createTopics(topics).all().get()
+                println "Successfully created all Kafka topics from YAML!"
+            } catch (Exception e) {
+                Throwable cause = e.cause ?: e
+                if (cause instanceof TopicExistsException || cause.message?.contains("TopicExistsException")) {
+                    println "Notice: One or more Kafka topics already exist. Skipping creation."
+                } else {
+                    throw new GradleException("Failed to create Kafka topics: ${cause.message}", cause)
+                }
+            }
+        }
+    }
+}

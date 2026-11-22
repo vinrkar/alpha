@@ -1,0 +1,99 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: fortune-market
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    defer-datasource-initialization: false
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    show-sql: false
+    properties:
+      jakarta.persistence.schema-generation.database.action: none
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  batch:
+    job:
+      enabled: false
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: fortune-market-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "com.vrevankar.alpha.fortune.*"
+
+#jasypt:
+#  encryptor:
+#    password: ${JASYPT_ENCRYPTOR_PASSWORD}
+#    algorithm: PBEWITHHMACSHA512ANDAES_256
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+
+# Custom Topics Configuration
+fortune:
+  kafka:
+    topics:
+      security-prices-hist: security.prices.hist-v1
+      security-prices-live: security.prices.live-v1
+      exchange-rates-hist: exchange.rates.hist-v1
+      exchange-rate-live: exchange.rate.live-v1
+
+      security-prices-hist-dlq: security.prices.hist-dlq-v1
+      security-prices-live-dlq: security.prices.live-dlq-v1
+      exchange-rates-hist-dlq: exchange.rates.hist-dlq-v1
+      exchange-rate-live-dlq: exchange.rate.live-dlq-v1
+
+    consumer:
+      security-prices-hist-group: security-prices-hist-group
+      security-prices-live-group: stock-prihces-live-group
+      exchange-rates-hist-group: exchange-rates-hist-group
+      exchange-rate-live-group: exchange-rate-live-groupge
+
+      security-prices-hist-dlq-group: security-prices-hist-dlq-group
+      security-prices-live-dlq-group: security-prices-live-dlq-group
+      exchange-rates-hist-dlq-group: exchange-rates-hist-dlq-group
+      exchange-rate-live-dlq-group: exchange-rate-live-dlq-group
+  market:
+    batch:
+      timezone: "Asia/Kolkata"
+      security:
+        routine:
+          cron: "0 */2 * * * *"
+#          cron: "0 */240 9-16 * * MON-FRI"
+        routine-retry:
+#          cron: "0 */5 * * * *"
+          cron: "0 */240 9-16 * * MON-FRI"
+      exchange:
+        routine:
+#          cron: "0 */2 * * * *"
+          cron: "0 */240 9-16 * * MON-FRI"
+#  client:
+#    yahoo-finance:
+#      base-url: "https://query2.finance.yahoo.com"
+#      search-path: "/v1/finance/search"
+#      chart-path: "/v8/finance/chart/{symbol}"
+#    frankfurter:
+#      base-url: "https://api.frankfurter.dev"
+#      history-path: "/v1"
+#      latest-path: "/v1/latest"
+
+  error:
+    include-binding-errors: always
+    include-message: always

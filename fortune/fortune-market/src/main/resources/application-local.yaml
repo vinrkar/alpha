@@ -1,0 +1,23 @@
+debug: false
+
+spring:
+  main:
+    allow-circular-references: true
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/ALPHA
+    username: FORTUNE_MARKET
+    password: ENC(GK/457pqonx2xJ/gmsxmmLdwRQ5vUf9JlB0dLGMHYosH8NotXpTPV/uJ4xrqMX7C9OnLkpHB+bVhObPQd+DFbw==)
+    driver-class-name: oracle.jdbc.OracleDriver
+  jpa:
+    show-sql: true
+  batch:
+    jdbc:
+      initialize-schema: always
+  kafka:
+    bootstrap-servers: localhost:9092
+
+logging:
+  level:
+    root: INFO
+    liquibase: DEBUG
+    org.liquibase: DEBUG

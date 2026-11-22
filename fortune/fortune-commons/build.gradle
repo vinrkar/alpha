@@ -1,0 +1,66 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    // Spring Boot Infrastructure
+    implementation libs.spring.boot.starter.data.jpa
+    implementation libs.spring.boot.starter.web
+    implementation libs.spring.boot.starter.validation
+    implementation libs.spring.boot.starter.batch
+    implementation libs.spring.boot.starter.mail
+
+    implementation libs.liquibase.core
+    implementation libs.jasypt.spring.boot
+    implementation libs.libphonenumber
+
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    // Testing
+    testImplementation libs.spring.boot.starter.test
+    testRuntimeOnly libs.junit.platform.launcher
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('printStructure') {
+    doLast {
+        projectDir.eachFileRecurse { file ->
+            if (!file.absolutePath.contains('build') && !file.absolutePath.contains('.gradle') && !file.absolutePath.contains('.git')) {
+                println file.absolutePath.replace(project.projectDir.absolutePath, '')
+            }
+        }
+    }
+}
+
+tasks.register('projectTree') {
+    description = 'Prints the project file and directory structure with ASCII tree formatting.'
+    group = 'help'
+    doLast {
+        ext.printTree = { File file, String indent, boolean isLast ->
+            if (file.name == '.gradle' || file.name == 'build' || file.name == '.git' || file.name == '.idea') return
+
+            println indent + (isLast ? "\\--- " : "+--- ") + file.name
+
+            if (file.isDirectory()) {
+                File[] children = file.listFiles()?.sort { it.name } ?: []
+                children = children.findAll { !['.gradle', 'build', '.git', '.idea'].contains(it.name) }
+
+                for (int i = 0; i < children.size(); i++) {
+                    printTree(children[i], indent + (isLast ? "    " : "|   "), i == children.size() - 1)
+                }
+            }
+        }
+
+        println project.name
+        File[] rootChildren = project.projectDir.listFiles()?.sort { it.name } ?: []
+        rootChildren = rootChildren.findAll { !['.gradle', 'build', '.git', '.idea'].contains(it.name) }
+
+        for (int i = 0; i < rootChildren.size(); i++) {
+            printTree(rootChildren[i], "", i == rootChildren.size() - 1)
+        }
+    }
+}

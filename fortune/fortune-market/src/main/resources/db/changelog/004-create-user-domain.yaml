@@ -1,0 +1,217 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-user-domain
+      author: vinay.revankar
+      changes:
+        - createTable:
+            tableName: CLIENT
+            columns:
+              - column:
+                  name: CLNT_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: TRADE_CD
+                  type: VARCHAR2(8)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: FIRST_NM
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: LAST_NM
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: EMAIL
+                  type: VARCHAR2(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PASSWD_HASH
+                  type: VARCHAR2(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PH_NO
+                  type: VARCHAR2(20)
+              - column:
+                  name: CRT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: UPDT_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: PORTFOLIO
+            columns:
+              - column:
+                  name: PFOLIO_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: CLNT_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PFOLIO
+                  type: VARCHAR2(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CURR
+                  type: VARCHAR2(3)
+                  defaultValue: 'INR'
+                  constraints:
+                    nullable: false
+              - column:
+                  name: CR_DTTM
+                  type: TIMESTAMP(6)
+                  defaultValueComputed: SYSTIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: PORTFOLIO
+            baseColumnNames: CLNT_ID
+            constraintName: FK__PORTFOLIO__CLIENT__CLNT_ID
+            referencedTableName: CLIENT
+            referencedColumnNames: CLNT_ID
+            onDelete: CASCADE
+
+        - addUniqueConstraint:
+            tableName: PORTFOLIO
+            columnNames: CLNT_ID, PFOLIO
+            constraintName: UK__PORTFOLIO__CLNT_ID__PFOLIO
+
+        - createTable:
+            tableName: HOLDING
+            columns:
+              - column:
+                  name: HLDG_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: PFOLIO_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PURCH_CN_NO
+                  type: VARCHAR2(10)
+                  defaultValue: 'UNKNOWN'
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ISIN
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: QTY
+                  type: NUMBER(12, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PURCH_PR
+                  type: NUMBER(12, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PURCH_DT
+                  type: DATE
+                  defaultValueComputed: TRUNC(SYSDATE)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SRC_PFOLIO_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: SRC_PRICE_ADJ_IND
+                  type: VARCHAR2(1)
+                  defaultValue: 'N'
+                  constraints:
+                    nullable: false
+                    check: "SRC_PRICE_ADJ_IND IN ('Y', 'N')"
+
+        - addForeignKeyConstraint:
+            baseTableName: HOLDING
+            baseColumnNames: PFOLIO_ID
+            constraintName: FK__HOLDING__PORTFOLIO__PFOLIO_ID
+            referencedTableName: PORTFOLIO
+            referencedColumnNames: PFOLIO_ID
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: HOLDING
+            baseColumnNames: SRC_PFOLIO_ID
+            constraintName: FK__HOLDING__PORTFOLIO__SRC_PFOLIO_ID
+            referencedTableName: PORTFOLIO
+            referencedColumnNames: PFOLIO_ID
+            onDelete: SET NULL
+
+        - addForeignKeyConstraint:
+            baseTableName: HOLDING
+            baseColumnNames: ISIN
+            constraintName: FK__HOLDING__SECURITY_MASTER__ISIN
+            referencedTableName: SECURITY_MASTER
+            referencedColumnNames: ISIN
+
+        - addUniqueConstraint:
+            tableName: HOLDING
+            columnNames: PFOLIO_ID, ISIN, PURCH_DT
+            constraintName: UK__HOLDING__PFOLIO_ID__ISIN__PURCH_DT
+
+  - changeSet:
+      id: 002-create-user-indexes
+      author: vinay.revankar
+      changes:
+        - createIndex:
+            tableName: CLIENT
+            indexName: IDX__CLIENT__EMAIL
+            columns:
+              - column:
+                  name: EMAIL
+
+        - createIndex:
+            tableName: PORTFOLIO
+            indexName: IDX__PORTFOLIO__CLNT_ID
+            columns:
+              - column:
+                  name: CLNT_ID
+
+        - createIndex:
+            tableName: HOLDING
+            indexName: IDX__HOLDING__PFOLIO_ID
+            columns:
+              - column:
+                  name: PFOLIO_ID
+
+        - createIndex:
+            tableName: HOLDING
+            indexName: IDX__HOLDING__ISIN
+            columns:
+              - column:
+                  name: ISIN

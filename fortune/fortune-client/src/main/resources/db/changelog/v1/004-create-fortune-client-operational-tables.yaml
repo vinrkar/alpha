@@ -1,0 +1,50 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-fortune-client-operational-tables
+      author: vrevankar
+      changes:
+        - createTable:
+            tableName: HOLDING
+            columns:
+              - column:
+                  name: HLDG_ID
+                  type: RAW(16)
+                  defaultValueComputed: SYS_GUID()
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: PK_HOLDING
+              - column:
+                  name: TRADE_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ISIN
+                  type: VARCHAR2(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: QTY
+                  type: NUMBER(10, 2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SRC_CLIENT_ID
+                  type: RAW(16)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: SRC_PRICE_ADJ_IND
+                  type: VARCHAR2(1)
+                  defaultValue: 'N'
+                  constraints:
+                    nullable: false
+                    check: "SRC_PRICE_ADJ_IND IN ('Y', 'N')"
+
+        - addForeignKeyConstraint:
+            baseTableName: HOLDING
+            baseColumnNames: TRADE_ID
+            constraintName: FK__HOLDING__TRADE
+            referencedTableName: TRADE
+            referencedColumnNames: TRADE_ID

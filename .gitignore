@@ -1,0 +1,54 @@
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+*.hprof
+
+### Python & Virtual Environments ###
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+### AI Eval & Local Runtime Data ###
+.agents/
+.deepeval/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+rubric-ai/rubric-finnie-ai/data/chroma_db/
+rubric-ai/rubric-finnie-ai/data/redis_data/
+rubric-ai/rubric-finnie-ai/data/rubric-finnie-db
+rubric-ai/rubric-finnie-ai/data/sessions/
+
+### Logs, Local Overrides & Secrets ###
+*.log
+*.local
+.env
+.env.*
+!.env.example
+
+### OS & Tooling Artifacts ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+caddy*.exe

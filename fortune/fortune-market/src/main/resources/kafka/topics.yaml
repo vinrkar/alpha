@@ -1,0 +1,29 @@
+# topics.yaml
+kafka:
+  topics:
+    - name: "security.prices.hist-v1"
+      partitions: 3
+      replicas: 1
+      cleanup:
+        policy: compact
+    - name: "security.prices.hist-dlq-v1"
+      partitions: 3
+      replicas: 1
+    - name: "security.prices.live-v1"
+      partitions: 3
+      replicas: 1
+    - name: "security.prices.live-dlq-v1"
+      partitions: 3
+      replicas: 1
+    - name: "exchange.rates.hist-v1"
+      partitions: 2
+      replicas: 1
+    - name: "exchange.rates.hist-dlq-v1"
+      partitions: 2
+      replicas: 1
+    - name: "exchange.rate.live-v1"
+      partitions: 2
+      replicas: 1
+    - name: "exchange.rate.live-dlq-v1"
+      partitions: 2
+      replicas: 1

@@ -1,0 +1,79 @@
+plugins {
+	id 'java'
+	alias libs.plugins.spring.boot apply false
+	id 'io.spring.dependency-management' version '1.1.4' apply false
+}
+
+allprojects {
+	group = appGroup
+	version = appVersion
+
+	repositories {
+		mavenCentral()
+		maven { url = 'https://jitpack.io' }
+		maven { url = 'https://repo.spring.io/milestone' }
+		maven { url = 'https://repo.spring.io/snapshot' }
+		gradlePluginPortal()
+	}
+
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(21)
+		}
+	}
+}
+
+// Recursive function to configure Java rules, test suites, and Spring Boot settings at any nesting depth
+def configureSubprojectsRecursively(Project p) {
+	p.subprojects { sub ->
+		// 1. Apply core Java rules and test configurations to all subprojects
+		sub.apply plugin: 'java'
+
+		sub.plugins.withType(JavaPlugin) {
+			sub.tasks.named('test') {
+				useJUnitPlatform()
+			}
+
+			sub.tasks.named('jar') {
+				enabled = true
+			}
+		}
+
+		// 2. Apply Spring Boot configurations and common starters ONLY to leaf application modules
+		if (sub.file('build.gradle').exists() && sub.name != 'fortune-commons') {
+			sub.apply plugin: 'org.springframework.boot'
+			sub.apply plugin: 'io.spring.dependency-management'
+
+			sub.dependencyManagement {
+				imports {
+					mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"
+				}
+			}
+
+			sub.dependencies {
+				implementation libs.jasypt.spring.boot
+				implementation libs.bouncycastle.prov
+				implementation libs.spring.boot.starter.batch
+				implementation libs.jackson.databind
+				implementation libs.resilience4j.spring.boot
+				implementation libs.spring.boot.starter.webflux
+				implementation libs.spring.kafka
+				implementation libs.ojdbc11
+			}
+
+			sub.tasks.matching { it.name == 'bootJar' }.configureEach {
+				enabled = false
+			}
+		}
+
+		// Recurse further down for deeply nested folders (e.g., :fortune:fortune-market)
+		configureSubprojectsRecursively(sub)
+	}
+}
+
+// Trigger the recursive configuration starting from root
+configureSubprojectsRecursively(project)
+
+apply from: 'encrypt.gradle'
+
+apply from: 'decrypt.gradle'

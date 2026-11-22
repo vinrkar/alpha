@@ -1,0 +1,26 @@
+debug: false
+
+# fortune > fortune-client > src > main > resources >> application-local.yaml
+spring:
+  config:
+    import: optional:classpath:application-local.yaml
+  main:
+    allow-circular-references: true
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/ALPHA
+    username: FORTUNE_CLIENT
+    password: ENC(O2LKyronB9coBB//77Q8F/msWl6NnNud44Qos14yadCHJQlMDN5JHHwz9850tYhPf0MEFuP8g38p0BEMNdKtxw==)
+    driver-class-name: oracle.jdbc.OracleDriver
+  jpa:
+    show-sql: true
+  batch:
+    jdbc:
+      initialize-schema: always
+  kafka:
+    bootstrap-servers: localhost:9092
+
+logging:
+  level:
+    root: INFO
+    liquibase: DEBUG
+    org.liquibase: DEBUG

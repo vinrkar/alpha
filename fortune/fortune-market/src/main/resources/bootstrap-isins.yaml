@@ -1,0 +1,23 @@
+fortune:
+  bootstrap:
+    securities:
+      - isin: US0378331005
+        ticker: AAPL
+        name: Apple Inc.
+        exchange: NASDAQ
+        currency: USD
+      - isin: US5949181045
+        ticker: MSFT
+        name: Microsoft Corporation
+        exchange: NASDAQ
+        currency: USD
+      - isin: INE002A01018
+        ticker: RELIANCE
+        name: Reliance Industries Ltd.
+        exchange: NSE
+        currency: INR
+      - isin: INE467B01029
+        ticker: TCS
+        name: Tata Consultancy Services Ltd.
+        exchange: NSE
+        currency: INR
