@@ -26,24 +26,26 @@ MARKET_COLUMNS: list[dict[str, Any]] = [
     {"key": "idx", "label": "#", "width": 0.5},
     {"key": "ticker", "label": "TICKER", "width": 1.2},
     {"key": "current_price", "label": "PRICE ($)", "width": 1.2},
-    {"key": "change_pct", "label": "CHANGE (%)", "width": 1.4},
+    {"key": "change_pct", "label": "CHG %", "width": 1.2},
     {"key": "volume_raw", "label": "VOLUME", "width": 1.2},
-    {"key": "market_cap_raw", "label": "MKT CAP", "width": 1.4},
+    {"key": "market_cap_raw", "label": "MKT CAP", "width": 1.45},
     {"key": "pe_ratio", "label": "P/E", "width": 1.0},
     {"key": "eps", "label": "EPS", "width": 1.0},
     {"key": "high_52", "label": "52W HIGH", "width": 1.2},
     {"key": "low_52", "label": "52W LOW", "width": 1.2},
-    {"key": "dividend", "label": "DIV.", "width": 1.1},
+    {"key": "dividend", "label": "DIV", "width": 1.1},
     {"key": "ex_dividend", "label": "EX-DIV", "width": 1.2},
     {"key": "rsi", "label": "RSI", "width": 1.0},
     {"key": "macd", "label": "MACD", "width": 1.2},
     {"key": "exchange", "label": "EXCH", "width": 1.0},
-    {"key": "sentiment", "label": "SENTIMENT", "width": 1.4},
+    {"key": "sentiment", "label": "SENT", "width": 1.2},
 ]
+
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _cached_market_snapshot(tickers_tuple: tuple[str, ...]) -> pd.DataFrame:
     return fetch_live_market_snapshot_batch(list(tickers_tuple))
+
 
 @st.fragment
 def render_market_chart_section(default_ticker: str) -> None:
@@ -138,6 +140,7 @@ def render_market_chart_section(default_ticker: str) -> None:
             use_container_width=True,
             key=f"market_chart_{st.session_state.rendered_ticker}_{st.session_state.rendered_chart_type}",
         )
+
 
 def render_market_intelligence_tab(active_user_data: dict[str, Any]) -> None:
     render_subheader_card(

@@ -258,6 +258,12 @@ def render_order_execution_tab(
 ) -> None:
     _init_order_form_state()
     user_holdings = active_user_data.get("holdings", {})
+    viewed_investor_id = (
+            selected_admin_target
+            or active_user_data.get("investor_id")
+            or active_user_data.get("user_id")
+            or active_user_id
+    )
 
     render_data_header_card("💼 Account Summary")
     st.markdown(
@@ -266,7 +272,7 @@ def render_order_execution_tab(
                     border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                 <div><span style="color: #38bdf8; font-weight: 700;">Active Investor:</span> {active_user_data.get('name', 'N/A')}</div>
-                <div><span style="color: #38bdf8; font-weight: 700;">Profile ID:</span> {active_user_id}</div>
+                <div><span style="color: #38bdf8; font-weight: 700;">Profile ID:</span> {viewed_investor_id}</div>
                 <div><span style="color: #38bdf8; font-weight: 700;">Risk Tolerance:</span> {active_user_data.get('risk_tolerance', 'N/A')}</div>
                 <div><span style="color: #38bdf8; font-weight: 700;">Active Holdings:</span> {len(user_holdings)} assets</div>
             </div>

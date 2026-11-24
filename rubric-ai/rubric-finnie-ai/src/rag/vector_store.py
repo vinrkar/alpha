@@ -2,6 +2,7 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
 import chromadb
@@ -9,8 +10,49 @@ from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 
-load_dotenv()
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=REPO_ROOT / ".env", override=False)
 logger = logging.getLogger(__name__)
+
+
+def _resolve_chromadb_endpoint(
+        host: Optional[str],
+        port: Optional[int],
+        collection_name: Optional[str],
+) -> tuple[str, int, str, Optional[str]]:
+    is_docker = os.path.exists("/.dockerenv")
+    default_host = "chromadb" if is_docker else "localhost"
+
+    env_host = os.getenv("CHROMA_HOST")
+    resolved_host = (
+            host
+            or (default_host if is_docker and env_host == "localhost" else env_host)
+            or default_host
+    )
+    resolved_port = port or int(os.getenv("CHROMA_PORT", "8000"))
+    resolved_collection = collection_name or os.getenv("CHROMA_COLLECTION_NAME", "finnieai_db")
+    auth_token = os.getenv("CHROMA_SERVER_AUTH_TOKEN")
+    return resolved_host, resolved_port, resolved_collection, auth_token
+
+
+def _build_embedding_function() -> Any:
+    provider = (os.getenv("CHROMA_EMBEDDING_PROVIDER") or "").strip().lower()
+    if not provider or provider == "default":
+        return embedding_functions.DefaultEmbeddingFunction()
+
+    if provider == "openai":
+        openai_key = os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
+        if not openai_key or openai_key.startswith("<"):
+            raise ValueError(
+                "CHROMA_EMBEDDING_PROVIDER='openai' requires a valid API_KEY or OPENAI_API_KEY."
+            )
+        return embedding_functions.OpenAIEmbeddingFunction(
+            api_key=openai_key,
+            model_name=os.getenv("EMBEDDING_MODEL", "text-embedding-3-large"),
+        )
+
+    raise ValueError(f"Unsupported CHROMA_EMBEDDING_PROVIDER: '{provider}'")
+
 
 class FinancialVectorStore:
     """Manages persistent vector storage using ChromaDB."""
@@ -21,18 +63,11 @@ class FinancialVectorStore:
             port: Optional[int] = None,
             collection_name: Optional[str] = None,
     ) -> None:
-        is_docker = os.path.exists("/.dockerenv")
-        default_host = "chromadb" if is_docker else "localhost"
-
-        env_host = os.getenv("CHROMA_HOST")
-        resolved_host = (
-                host
-                or (default_host if is_docker and env_host == "localhost" else env_host)
-                or default_host
+        resolved_host, resolved_port, resolved_collection, auth_token = _resolve_chromadb_endpoint(
+            host=host,
+            port=port,
+            collection_name=collection_name,
         )
-        resolved_port = port or int(os.getenv("CHROMA_PORT", "8000"))
-        resolved_collection = collection_name or os.getenv("CHROMA_COLLECTION_NAME", "finnieai_db")
-        auth_token = os.getenv("CHROMA_SERVER_AUTH_TOKEN")
 
         self.client: Any = None
         self.collection: Any = None
@@ -46,15 +81,7 @@ class FinancialVectorStore:
                 settings=Settings(anonymized_telemetry=False),
             )
 
-            openai_key = os.getenv("API_KEY")
-            if openai_key and not openai_key.startswith("<"):
-                embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
-                    api_key=openai_key,
-                    model_name=os.getenv("EMBEDDING_MODEL", "text-embedding-3-large"),
-                )
-            else:
-                embedding_fn = embedding_functions.DefaultEmbeddingFunction()
-
+            embedding_fn = _build_embedding_function()
             self.collection = self.client.get_or_create_collection(
                 name=resolved_collection,
                 embedding_function=embedding_fn,

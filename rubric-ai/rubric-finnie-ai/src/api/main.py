@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import logging
 from pathlib import Path
-import re
 from typing import Any, Optional
 import warnings
 
@@ -23,55 +22,24 @@ from src.core.redis_client import checkpointer, get_semantic_cache, set_semantic
 from src.database.repository import get_all_user_profiles, get_user_profile
 from src.services.trading_service import execute_trade
 from src.tools.yfinance_tool import fetch_historical_prices
-from src.utils.date_utils import extract_and_normalize_dates, has_date_reference
+from src.utils.date_utils import (
+    extract_and_normalize_dates,
+    format_invalid_date_range_message,
+    has_date_reference,
+    is_inverted_date_range,
+)
 
 warnings.simplefilter(action="ignore", category=Pandas4Warning)
 logger = logging.getLogger(__name__)
 
 PRIVATE_QUERY_KEYWORDS = ("portfolio", "holding", "my asset", "allocation", "balance", "trade")
-INVALID_DATE_RANGE_MSG = (
-    "⚠️ **Invalid Date Range:** The start date cannot be after the end date. "
-    "Please check your date bounds and try again."
-)
-
-
-def _has_inverted_date_range(
-        query: str,
-        start_date: Optional[str],
-        end_date: Optional[str],
-) -> bool:
-    if start_date and end_date:
-        try:
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
-            if start_dt > end_dt:
-                return True
-        except ValueError:
-            pass
-
-    iso_dates = re.findall(r"\b(\d{4}-\d{2}-\d{2})\b", query)
-    if len(iso_dates) >= 2:
-        try:
-            d1 = datetime.strptime(iso_dates[0], "%Y-%m-%d").date()
-            d2 = datetime.strptime(iso_dates[1], "%Y-%m-%d").date()
-            if d1 > d2:
-                return True
-        except ValueError:
-            pass
-    return False
-
 
 def extract_closes_for_range(
         ticker: str,
         start_date: Optional[str],
         end_date: Optional[str],
 ) -> dict[str, float]:
-    if not start_date or not end_date:
-        return {}
-    try:
-        if datetime.strptime(start_date, "%Y-%m-%d").date() > datetime.strptime(end_date, "%Y-%m-%d").date():
-            return {}
-    except ValueError:
+    if not start_date or not end_date or is_inverted_date_range("", start_date, end_date):
         return {}
 
     df_hist = fetch_historical_prices(ticker, start=start_date, end=end_date)
@@ -89,6 +57,49 @@ def extract_closes_for_range(
     temp_df["DateStr"] = pd.to_datetime(temp_df[date_col]).dt.strftime("%Y-%m-%d")
     return dict(zip(temp_df["DateStr"], df_filtered["Close"].astype(float)))
 
+def _build_historical_fallback_response(
+        ticker: str,
+        closes: dict[str, Any],
+        start_dt: Optional[str],
+        end_dt: Optional[str],
+) -> str:
+    table_md = (
+        format_daywise_price_table(closes)
+        if closes
+        else "| Date | Closing Price |\n|---|---|\n| N/A | No data available |"
+    )
+    resolved_start = start_dt or "Custom Range"
+    resolved_end = end_dt or "Present"
+    return (
+        f"### 📊 {ticker} Analysis\n\n"
+        f"#### Historical Daily Closing Prices (from **{resolved_start}** to **{resolved_end}**)\n"
+        f"{table_md}\n\n"
+        f"*Market data successfully retrieved and verified for the requested date range.*"
+    )
+
+def _chat_response_from_payload(
+        *,
+        session_id: str,
+        user_id: str,
+        payload: dict[str, Any],
+        errors: Optional[list[str]] = None,
+) -> "ChatResponse":
+    return ChatResponse(
+        session_id=payload.get("session_id", session_id),
+        active_user_id=payload.get("active_user_id", user_id),
+        current_step=payload.get("current_step", "completed"),
+        next_domain=payload.get("next_domain", "general"),
+        user_profile=payload.get("user_profile", {}),
+        portfolio_holdings=payload.get("portfolio_holdings", {}),
+        retrieved_documents=payload.get("retrieved_documents", []),
+        market_data=payload.get("market_data", {}),
+        valuation_data=payload.get("valuation_data", {}),
+        risk_data=payload.get("risk_data", {}),
+        final_response=payload.get("final_response", ""),
+        errors=errors if errors is not None else [],
+        last_active_ticker=payload.get("last_active_ticker"),
+        full_historical_closes=payload.get("full_historical_closes", {}),
+    )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -100,14 +111,12 @@ async def lifespan(app: FastAPI):
         raise
     yield
 
-
 app = FastAPI(
     title="Rubric AI - Financial Assistant API",
     description="Asynchronous multi-agent orchestration gateway for financial analysis, valuation, and risk management.",
     version="1.0.0",
     lifespan=lifespan,
 )
-
 
 class ChatRequest(BaseModel):
     user_query: str = Field(..., description="The financial query or request from the user.")
@@ -118,14 +127,12 @@ class ChatRequest(BaseModel):
         description="Pre-computed compliance data payload.",
     )
 
-
 class TradeRequest(BaseModel):
     user_id: str = Field(..., description="User ID executing the trade.")
     ticker: str = Field(..., description="Target stock ticker symbol.")
     action: str = Field(..., description="Trade action: 'BUY' or 'SELL'.")
     shares: float = Field(..., description="Number of shares to trade.")
     execution_price: float = Field(..., description="Simulated execution price per share.")
-
 
 class ChatResponse(BaseModel):
     session_id: str
@@ -143,11 +150,9 @@ class ChatResponse(BaseModel):
     last_active_ticker: Optional[str] = None
     full_historical_closes: Optional[dict[str, float]] = Field(default_factory=dict)
 
-
 @app.get("/health", tags=["System"])
 async def health_check() -> dict[str, str]:
     return {"status": "healthy", "service": "Rubric AI Financial Assistant API"}
-
 
 @app.post("/api/v1/chat", response_model=ChatResponse, tags=["Agent Execution"])
 async def execute_financial_chat(request: ChatRequest) -> ChatResponse:
@@ -162,23 +167,22 @@ async def execute_financial_chat(request: ChatRequest) -> ChatResponse:
 
         if (
                 (has_date_intent and not extracted_start and not extracted_end)
-                or _has_inverted_date_range(query_text, extracted_start, extracted_end)
+                or is_inverted_date_range(query_text, extracted_start, extracted_end)
         ):
-            return ChatResponse(
+            invalid_msg = format_invalid_date_range_message(
+                query_text,
+                start_date=extracted_start,
+                end_date=extracted_end,
+            )
+            return _chat_response_from_payload(
                 session_id=active_thread_id,
-                active_user_id=resolved_user_id,
-                current_step="guardrail_rejected",
-                next_domain="general",
-                user_profile={},
-                portfolio_holdings={},
-                retrieved_documents=[],
-                market_data={},
-                valuation_data={},
-                risk_data={},
-                final_response=INVALID_DATE_RANGE_MSG,
+                user_id=resolved_user_id,
+                payload={
+                    "current_step": "guardrail_rejected",
+                    "next_domain": "general",
+                    "final_response": invalid_msg,
+                },
                 errors=["Invalid date range: start date is after end date"],
-                last_active_ticker=None,
-                full_historical_closes={},
             )
 
         is_private_query = any(kw in query_text.lower() for kw in PRIVATE_QUERY_KEYWORDS)
@@ -195,21 +199,11 @@ async def execute_financial_chat(request: ChatRequest) -> ChatResponse:
                 end_date=extracted_end,
             )
             if cached and cached.get("full_historical_closes"):
-                return ChatResponse(
+                return _chat_response_from_payload(
                     session_id=active_thread_id,
-                    active_user_id=resolved_user_id,
-                    current_step=cached.get("current_step", "completed"),
-                    next_domain=cached.get("next_domain", "general"),
-                    user_profile=cached.get("user_profile", {}),
-                    portfolio_holdings=cached.get("portfolio_holdings", {}),
-                    retrieved_documents=cached.get("retrieved_documents", []),
-                    market_data=cached.get("market_data", {}),
-                    valuation_data=cached.get("valuation_data", {}),
-                    risk_data=cached.get("risk_data", {}),
-                    final_response=cached.get("final_response", ""),
+                    user_id=resolved_user_id,
+                    payload=cached,
                     errors=[],
-                    last_active_ticker=cached.get("last_active_ticker"),
-                    full_historical_closes=cached.get("full_historical_closes", {}),
                 )
 
         active_profile = profiles.get(resolved_user_id, profiles.get(next(iter(profiles.keys())), {}))
@@ -242,19 +236,12 @@ async def execute_financial_chat(request: ChatRequest) -> ChatResponse:
 
         graph_final_response = result.get("final_response", "")
         if not graph_final_response or "No response generated" in graph_final_response:
-            table_md = (
-                format_daywise_price_table(full_closes)
-                if full_closes
-                else "| Date | Closing Price |\n|---|---|\n| N/A | No data available |"
-            )
-            start_dt = market_data_dict.get("start_date") or extracted_start or "Custom Range"
-            end_dt = market_data_dict.get("end_date") or extracted_end or "Present"
-            graph_final_response = (
-                f"### 📊 {resolved_ticker} Analysis\n\n"
-                f"#### Historical Daily Closing Prices (from **{start_dt}** to **{end_dt}**)\n"
-                f"{table_md}\n\n"
-                f"*Market data successfully retrieved and verified for the requested date range.*"
-            )
+            graph_final_response = _build_historical_fallback_response(
+                resolved_ticker,
+                full_closes,
+                market_data_dict.get("start_date") or extracted_start,
+                market_data_dict.get("end_date") or extracted_end,
+                )
 
         response_payload = {
             "session_id": result.get("session_id", active_thread_id),
@@ -282,13 +269,17 @@ async def execute_financial_chat(request: ChatRequest) -> ChatResponse:
                 end_date=extracted_end,
             )
 
-        return ChatResponse(**response_payload, errors=result.get("errors", []))
+        return _chat_response_from_payload(
+            session_id=active_thread_id,
+            user_id=resolved_user_id,
+            payload=response_payload,
+            errors=result.get("errors", []),
+        )
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Agent execution failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Agent execution failed: {exc}")
-
 
 @app.post("/api/v1/trade", tags=["Trading"])
 def post_mock_trade(request: TradeRequest) -> dict[str, str]:
@@ -306,11 +297,9 @@ def post_mock_trade(request: TradeRequest) -> dict[str, str]:
         logger.error("Trade API error: %s", exc)
         raise HTTPException(status_code=500, detail=f"Internal trade execution error: {exc}")
 
-
 @app.get("/api/v1/profiles", tags=["Profiles"])
 async def get_user_profiles() -> dict[str, Any]:
     return get_all_user_profiles()
-
 
 @app.get("/api/v1/profiles/{user_id}", tags=["Profiles"])
 def get_single_profile(user_id: str) -> dict[str, Any]:

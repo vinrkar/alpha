@@ -18,7 +18,12 @@ from src.agent.state import FinancialAssistantState
 from src.core.guardrails import sanitize_and_validate_input
 from src.services.quant_service import evaluate_portfolio_compliance
 from src.tools.yfinance_tool import fetch_historical_prices, fetch_live_market_data
-from src.utils.date_utils import extract_and_normalize_dates, has_explicit_date_range
+from src.utils.date_utils import (
+    extract_and_normalize_dates,
+    format_invalid_date_range_message,
+    has_explicit_date_range,
+    is_inverted_date_range,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +38,31 @@ UNREALISTIC_GUARANTEE_PATTERN = re.compile(
 )
 CURRENT_PRICE_PATTERN = re.compile(r"\b(?:current|latest|live|spot)\s+price\b", re.IGNORECASE)
 
-
 def _recent_messages(state: FinancialAssistantState) -> list[Any]:
     raw_messages = state.get("messages", [])
     return list(raw_messages[-6:]) if isinstance(raw_messages, list) else []
 
+def _build_node_output(
+        *,
+        step: str,
+        ticker: str | None,
+        response_text: str,
+        recent_msgs: list[Any],
+        snapshot: dict[str, Any] | None = None,
+        closes: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "current_step": step,
+        "last_active_ticker": ticker,
+        "final_response": response_text,
+        "agent_output": response_text,
+        "messages": recent_msgs + [AIMessage(content=response_text)],
+    }
+    if snapshot is not None:
+        payload["market_data"] = dict(snapshot)
+    if closes is not None:
+        payload["full_historical_closes"] = dict(closes)
+    return payload
 
 def _is_speculative_or_unrealistic_risk_query(query_lower: str) -> bool:
     asks_portfolio_compliance = (
@@ -46,7 +71,6 @@ def _is_speculative_or_unrealistic_risk_query(query_lower: str) -> bool:
     if asks_portfolio_compliance:
         return False
     return bool(SPECULATIVE_PATTERN.search(query_lower) or UNREALISTIC_GUARANTEE_PATTERN.search(query_lower))
-
 
 def _format_high_risk_query_response(
         user_query: str,
@@ -102,7 +126,6 @@ def _format_high_risk_query_response(
         "*Disclaimer: AI-generated financial insights are for informational purposes only and do not constitute formal investment advice.*"
     )
 
-
 def _format_compliance_response(holdings: dict[str, Any]) -> str:
     enriched = {
         ticker: {
@@ -132,7 +155,6 @@ def _format_compliance_response(holdings: dict[str, Any]) -> str:
         f"*Executive Summary:* All asset weights have been verified against allocation limits."
     )
 
-
 def _format_portfolio_summary(holdings: dict[str, Any]) -> str:
     if not holdings:
         return "Your portfolio currently has no active holdings."
@@ -149,7 +171,6 @@ def _format_portfolio_summary(holdings: dict[str, Any]) -> str:
         )
     lines.append(f"\n**Total Portfolio Value:** ${total_val:,.2f}")
     return "\n".join(lines)
-
 
 def _extract_closes_map(
         hist_df: pd.DataFrame,
@@ -182,7 +203,6 @@ def _extract_closes_map(
     closes = dict(zip(date_strings, filtered[close_col].astype(float)))
     return closes, latest_price
 
-
 def execute_market_data_lookup(state: FinancialAssistantState) -> dict[str, Any]:
     user_query = state.get("user_query", "")
     logger.info("Executing market data lookup for query: '%s'", user_query)
@@ -202,13 +222,12 @@ def execute_market_data_lookup(state: FinancialAssistantState) -> dict[str, Any]
 
     if _is_speculative_or_unrealistic_risk_query(query_lower):
         resp_text = _format_high_risk_query_response(user_query, holdings, query_lower)
-        return {
-            "current_step": "market_analysis_synthesized",
-            "last_active_ticker": None,
-            "final_response": resp_text,
-            "agent_output": resp_text,
-            "messages": recent_msgs + [AIMessage(content=resp_text)],
-        }
+        return _build_node_output(
+            step="market_analysis_synthesized",
+            ticker=None,
+            response_text=resp_text,
+            recent_msgs=recent_msgs,
+        )
 
     extracted_params = extract_parameters_dynamically(user_query, holdings, existing_ticker)
     explicit_param_ticker = (
@@ -239,37 +258,41 @@ def execute_market_data_lookup(state: FinancialAssistantState) -> dict[str, Any]
             kw in query_lower for kw in COMPLIANCE_KEYWORDS
     ):
         resp_text = _format_compliance_response(holdings)
-        return {
-            "current_step": "market_analysis_synthesized",
-            "last_active_ticker": None,
-            "final_response": resp_text,
-            "agent_output": resp_text,
-            "messages": recent_msgs + [AIMessage(content=resp_text)],
-        }
+        return _build_node_output(
+            step="market_analysis_synthesized",
+            ticker=None,
+            response_text=resp_text,
+            recent_msgs=recent_msgs,
+        )
 
     if extracted_params.is_portfolio_summary_query:
         resp_text = _format_portfolio_summary(holdings)
-        return {
-            "current_step": "market_analysis_synthesized",
-            "last_active_ticker": None,
-            "final_response": resp_text,
-            "agent_output": resp_text,
-            "messages": recent_msgs + [AIMessage(content=resp_text)],
-        }
+        return _build_node_output(
+            step="market_analysis_synthesized",
+            ticker=None,
+            response_text=resp_text,
+            recent_msgs=recent_msgs,
+        )
 
     today = datetime.now().date()
     has_dates = has_explicit_date_range(user_query)
     extracted_start, extracted_end = extract_and_normalize_dates(user_query)
 
-    if has_dates and (not extracted_start or not extracted_end):
-        error_msg = "⚠️ **Invalid Date Range:** The start date cannot be after the end date. Please check your date bounds and try again."
-        return {
-            "current_step": "guardrail_rejected",
-            "last_active_ticker": resolved_ticker,
-            "final_response": error_msg,
-            "agent_output": error_msg,
-            "messages": recent_msgs + [AIMessage(content=error_msg)],
-        }
+    if is_inverted_date_range(user_query, extracted_start, extracted_end) or (
+            has_dates and (not extracted_start or not extracted_end)
+    ):
+        error_msg = format_invalid_date_range_message(
+            user_query,
+            start_date=extracted_start,
+            end_date=extracted_end,
+            ticker=resolved_ticker,
+        )
+        return _build_node_output(
+            step="guardrail_rejected",
+            ticker=resolved_ticker,
+            response_text=error_msg,
+            recent_msgs=recent_msgs,
+        )
 
     is_current_price_query = bool(CURRENT_PRICE_PATTERN.search(query_lower)) and not has_dates
     start_date_str = extracted_start or getattr(extracted_params, "start_date", None) or (
@@ -336,15 +359,14 @@ def execute_market_data_lookup(state: FinancialAssistantState) -> dict[str, Any]
         if computed_macd:
             tech_lines.append(f"- **MACD Status:** {computed_macd}")
         tech_response = "\n".join(tech_lines)
-        return {
-            "current_step": "market_analysis_synthesized",
-            "last_active_ticker": resolved_ticker,
-            "market_data": dict(snapshot),
-            "full_historical_closes": dict(display_closes),
-            "final_response": tech_response,
-            "agent_output": tech_response,
-            "messages": recent_msgs + [AIMessage(content=tech_response)],
-        }
+        return _build_node_output(
+            step="market_analysis_synthesized",
+            ticker=resolved_ticker,
+            response_text=tech_response,
+            recent_msgs=recent_msgs,
+            snapshot=snapshot,
+            closes=display_closes,
+        )
 
     return {
         "current_step": "market_data_fetched",
@@ -352,7 +374,6 @@ def execute_market_data_lookup(state: FinancialAssistantState) -> dict[str, Any]
         "market_data": dict(snapshot),
         "full_historical_closes": dict(display_closes),
     }
-
 
 def execute_market_synthesis(state: FinancialAssistantState) -> dict[str, Any]:
     existing_final = (state.get("final_response") or "").strip()
@@ -440,6 +461,5 @@ def execute_market_synthesis(state: FinancialAssistantState) -> dict[str, Any]:
         "market_data": market_data,
         "full_historical_closes": historical_closes,
     }
-
 
 execute_market_node_with_mcp = execute_market_data_lookup

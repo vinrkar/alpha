@@ -5,12 +5,12 @@ import time
 import uuid
 from typing import Any
 
-import chromadb
 import streamlit as st
 
 from src.core.guardrails import sanitize_and_validate_input
 from src.core.llm_client import get_embedding
 from src.core.redis_client import get_semantic_cache, set_semantic_cache
+from src.rag.vector_store import FinancialVectorStore
 from src.ui.components.helpers import (
     add_rag_search_to_history,
     render_clear_rag_history_button,
@@ -32,17 +32,20 @@ STOPWORDS = {
     "growth", "co's",
 }
 
+
 def _is_valid_query(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     normalized = re.sub(r"[\s\u00a0\u200b\u200c\u200d\ufeff]+", "", value).strip("\"'`")
     return bool(normalized)
 
+
 def _normalize_query(raw_query: Any) -> str:
     if not isinstance(raw_query, str):
         return ""
     cleaned = re.sub(r"[\s\u00a0\u200b\u200c\u200d\ufeff]+", " ", raw_query).strip()
     return cleaned if _is_valid_query(cleaned) else ""
+
 
 def _infer_target_ticker_or_domain(query: str, holdings: dict[str, Any]) -> str:
     parenthetical = re.search(r"\(([A-Za-z]{1,5})\)", query)
@@ -72,14 +75,22 @@ def _infer_target_ticker_or_domain(query: str, holdings: dict[str, Any]) -> str:
     ]
     return words[0][:5].upper() if words else "GENERAL"
 
-def _query_chromadb(query: str, fallback_ticker: str) -> tuple[str, str, float]:
-    chroma_host = os.getenv("CHROMA_HOST", "chromadb")
-    chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
-    collection_name = os.getenv("CHROMA_COLLECTION_NAME", "finnieai_db")
 
-    client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
-    collection = client.get_collection(collection_name)
-    results = collection.query(query_texts=[query], n_results=1)
+def _query_chromadb(query: str, fallback_ticker: str) -> tuple[str, str, float]:
+    collection_name = os.getenv("CHROMA_COLLECTION_NAME", "finnieai_db")
+    store = FinancialVectorStore(collection_name=collection_name)
+
+    if not store.collection:
+        raise RuntimeError(
+            f"ChromaDB collection '{collection_name}' is unavailable. "
+            "Check CHROMA_HOST, CHROMA_PORT, and auth settings."
+        )
+
+    results = store.collection.query(
+        query_texts=[query],
+        n_results=1,
+        include=["documents", "metadatas", "distances"],
+    )
 
     if results and results.get("documents") and results["documents"][0]:
         report_text = results["documents"][0][0]
@@ -99,6 +110,7 @@ def _query_chromadb(query: str, fallback_ticker: str) -> tuple[str, str, float]:
         fallback_ticker,
         0.0100,
     )
+
 
 def render_rag_inspector_tab(active_user_data: dict[str, Any]) -> None:
     render_subheader_card(

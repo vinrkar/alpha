@@ -1,6 +1,4 @@
-from datetime import datetime
 import logging
-import re
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -13,7 +11,12 @@ from src.core.guardrails import guardrail_protected
 from src.core.llm_client import get_embedding
 from src.core.redis_client import get_semantic_cache, set_semantic_cache
 from src.database.repository import get_all_user_profiles
-from src.utils.date_utils import extract_and_normalize_dates, has_date_reference
+from src.utils.date_utils import (
+    extract_and_normalize_dates,
+    format_invalid_date_range_message,
+    has_date_reference,
+    is_inverted_date_range,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,30 +26,11 @@ DEFAULT_USER_ID = next(iter(CLIENT_PROFILES.keys())) if CLIENT_PROFILES else "de
 
 _HISTORICAL_PHRASES = ("historical", "history", "between", "from ", "chart", "trend")
 
-
 class ChatRequest(BaseModel):
     user_query: str
     session_id: Optional[str] = Field(default="default_session")
     active_user_id: Optional[str] = Field(default=None)
     precomputed_compliance: Optional[Any] = Field(default=None)
-
-
-def _is_inverted_range(query: str, start_date: Optional[str], end_date: Optional[str]) -> bool:
-    if start_date and end_date:
-        try:
-            if datetime.strptime(start_date, "%Y-%m-%d").date() > datetime.strptime(end_date, "%Y-%m-%d").date():
-                return True
-        except ValueError:
-            pass
-    iso_dates = re.findall(r"\b(\d{4}-\d{2}-\d{2})\b", query)
-    if len(iso_dates) >= 2:
-        try:
-            if datetime.strptime(iso_dates[0], "%Y-%m-%d").date() > datetime.strptime(iso_dates[1], "%Y-%m-%d").date():
-                return True
-        except ValueError:
-            pass
-    return False
-
 
 def _is_range_or_historical_lookup(
         query_lower: str,
@@ -58,7 +42,6 @@ def _is_range_or_historical_lookup(
     if start_date and end_date:
         return start_date != end_date
     return bool(start_date or end_date)
-
 
 @router.post("/chat")
 @guardrail_protected(intent_type="portfolio")
@@ -72,10 +55,14 @@ async def chat_endpoint(request: ChatRequest) -> dict[str, Any]:
         extracted_start, extracted_end = extract_and_normalize_dates(query_text)
         has_date_intent = has_date_reference(query_text)
 
-        if _is_inverted_range(query_text, extracted_start, extracted_end):
+        if is_inverted_date_range(query_text, extracted_start, extracted_end):
             raise HTTPException(
                 status_code=400,
-                detail="Invalid Date Range: start date cannot be after end date.",
+                detail=format_invalid_date_range_message(
+                    query_text,
+                    start_date=extracted_start,
+                    end_date=extracted_end,
+                ),
             )
 
         is_historical_lookup = _is_range_or_historical_lookup(q_lower, extracted_start, extracted_end)
@@ -131,10 +118,10 @@ async def chat_endpoint(request: ChatRequest) -> dict[str, Any]:
         if graph_response and (next_domain == "valuation_domain" or not is_historical_lookup):
             final_resp = graph_response
         elif is_historical_lookup:
-            table_md = (
-                format_daywise_price_table(full_closes, start_date=extracted_start, end_date=extracted_end)
-                if full_closes
-                else "| Date | Closing Price |\n|---|---|\n| N/A | No data available |"
+            table_md = format_daywise_price_table(
+                full_closes,
+                start_date=extracted_start,
+                end_date=extracted_end,
             )
             start_dt = market_data_dict.get("start_date") or extracted_start or "Custom Range"
             end_dt = market_data_dict.get("end_date") or extracted_end or "Present"

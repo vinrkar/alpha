@@ -37,11 +37,25 @@ div[data-testid="stButton"] > button[kind="secondary"] {
     font-weight: 600 !important;
     white-space: nowrap !important;
     border-radius: 8px !important;
+    padding: 0.25rem 0.75rem !important;
+    min-width: max-content !important;
+    width: auto !important;
 }
 div[data-testid="stButton"] > button[kind="secondary"]:hover {
     border-color: #f87171 !important;
     color: #ffffff !important;
     background-color: rgba(185, 28, 28, 0.6) !important;
+}
+div[data-testid="stHorizontalBlock"] > div:last-child div[data-testid="stButton"] {
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+div[data-testid="stHorizontalBlock"] > div:last-child {
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+div[data-testid="stHorizontalBlock"] > div:last-child > div {
+    width: fit-content !important;
 }
 </style>
 """
@@ -53,14 +67,12 @@ _HOLDING_ITEM_REGEX = re.compile(
 _TOTAL_VALUE_REGEX = re.compile(r"Total Portfolio Value:\s*\*?\*?\s*\$([0-9,.]+)", re.IGNORECASE)
 _TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
 
-
 def _has_meaningful_query(value: Any) -> bool:
     """Returns True only if value is a non-empty, non-whitespace, non-quote-only string."""
     if not isinstance(value, str):
         return False
     stripped = re.sub(r"[\s\u00a0\u200b\u200c\u200d\ufeff]+", "", value).strip("\"'`")
     return bool(stripped)
-
 
 def _is_valid_chat_message(msg: Any) -> bool:
     """Returns True only if a chat message has a non-empty query and meaningful content or closes."""
@@ -73,14 +85,12 @@ def _is_valid_chat_message(msg: Any) -> bool:
     has_closes = isinstance(closes, dict) and len(closes) > 0
     return bool(content) or has_closes
 
-
 def _clean_chat_messages(entries: Any) -> list[dict[str, Any]]:
     """Filters out empty, whitespace-only, or malformed chat history entries."""
     if not isinstance(entries, list):
         return []
     cleaned = [entry for entry in entries if _is_valid_chat_message(entry)]
     return cleaned[:MAX_HISTORY_MESSAGES]
-
 
 def _clean_rag_history(entries: Any) -> list[dict[str, Any]]:
     """Filters out malformed or empty/whitespace/quote-only RAG history entries."""
@@ -92,19 +102,16 @@ def _clean_rag_history(entries: Any) -> list[dict[str, Any]]:
             cleaned.append(entry)
     return cleaned[:MAX_RAG_HISTORY]
 
-
 def clear_rag_search_history() -> None:
     """Clears in-memory and persisted RAG search history."""
     st.session_state.rag_history = []
     save_session_state_to_disk()
-
 
 def clear_chat_history() -> None:
     """Clears in-memory and persisted Assistant Chat history."""
     st.session_state.messages = []
     st.session_state.visible_message_count = DEFAULT_VISIBLE_MESSAGES
     save_session_state_to_disk()
-
 
 def render_clear_rag_history_button(key: str = "clear_rag_history_below_input_btn") -> None:
     """Renders a high-contrast, right-aligned Clear RAG History button when history exists."""
@@ -114,12 +121,11 @@ def render_clear_rag_history_button(key: str = "clear_rag_history_below_input_bt
         return
 
     st.markdown(_CLEAR_BUTTON_CSS, unsafe_allow_html=True)
-    _, col_right = st.columns([10.9, 1.1], vertical_alignment="center")
+    _, col_right = st.columns([11.0, 1.0], vertical_alignment="center")
     with col_right:
-        if st.button("🗑️ Clear RAG History", key=key, use_container_width=True):
+        if st.button("🧹 Clear RAG History", key=key, use_container_width=False):
             clear_rag_search_history()
             st.rerun()
-
 
 def render_clear_chat_history_button(key: str = "clear_chat_history_below_input_btn") -> None:
     """Renders a high-contrast, right-aligned Clear Chat History button when messages exist."""
@@ -129,12 +135,11 @@ def render_clear_chat_history_button(key: str = "clear_chat_history_below_input_
         return
 
     st.markdown(_CLEAR_BUTTON_CSS, unsafe_allow_html=True)
-    _, col_right = st.columns([10.9, 1.1], vertical_alignment="center")
+    _, col_right = st.columns([11.0, 1.0], vertical_alignment="center")
     with col_right:
-        if st.button("🗑️ Clear Chat History", key=key, use_container_width=True):
+        if st.button("🗑️ Clear Chat History", key=key, use_container_width=False):
             clear_chat_history()
             st.rerun()
-
 
 def run_async(coro: Coroutine[Any, Any, T]) -> T:
     """Runs an async coroutine safely from synchronous Streamlit execution contexts."""
@@ -147,11 +152,9 @@ def run_async(coro: Coroutine[Any, Any, T]) -> T:
     except RuntimeError:
         return asyncio.run(coro)
 
-
 def _session_file_path() -> Path:
     session_id = st.session_state.get("session_id", "streamlit_session_default")
     return STORAGE_DIR / f"{session_id}.json"
-
 
 def init_persistent_session() -> None:
     """Initializes or restores authentication, chat messages, and RAG history."""
@@ -221,7 +224,6 @@ def init_persistent_session() -> None:
         st.session_state.get("rag_history") or loaded_rag_history
     )
 
-
 def save_session_state_to_disk() -> None:
     """Persists cleaned chat messages and RAG search history to disk."""
     if not st.session_state.get("session_id"):
@@ -240,7 +242,6 @@ def save_session_state_to_disk() -> None:
     except Exception as exc:
         logger.warning("Failed to persist session state: %s", exc)
 
-
 def add_message_to_history(message_payload: dict[str, Any]) -> None:
     """Prepends a valid, non-empty chat message and enforces history limits."""
     if not _is_valid_chat_message(message_payload):
@@ -250,7 +251,6 @@ def add_message_to_history(message_payload: dict[str, Any]) -> None:
     st.session_state.messages = messages[:MAX_HISTORY_MESSAGES]
     save_session_state_to_disk()
 
-
 def add_rag_search_to_history(rag_payload: dict[str, Any]) -> None:
     """Prepends a valid, non-empty RAG retrieval entry and enforces history limits."""
     if not isinstance(rag_payload, dict) or not _has_meaningful_query(rag_payload.get("query", "")):
@@ -259,7 +259,6 @@ def add_rag_search_to_history(rag_payload: dict[str, Any]) -> None:
     history.insert(0, rag_payload)
     st.session_state.rag_history = history[:MAX_RAG_HISTORY]
     save_session_state_to_disk()
-
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_live_organization_name(ticker: str) -> str:
@@ -273,7 +272,6 @@ def fetch_live_organization_name(ticker: str) -> str:
     except Exception as exc:
         logger.debug("Organization name lookup failed for %s: %s", clean_ticker, exc)
     return clean_ticker
-
 
 def _normalize_markdown_blocks(content: str) -> str:
     normalized = content.replace("\\n", "\n")
@@ -355,7 +353,6 @@ def _normalize_markdown_blocks(content: str) -> str:
 
     return "\n".join(spaced_lines)
 
-
 def _strip_single_day_historical_block(content: str) -> str:
     """Removes a single-day or single-row Historical Daily Closing Prices block."""
     cleaned = re.sub(
@@ -364,7 +361,6 @@ def _strip_single_day_historical_block(content: str) -> str:
         content,
     )
     return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
-
 
 def _format_holdings_summary_as_table(content: str) -> str:
     """Converts bulleted 'Active Portfolio Holdings Summary' items into a Markdown table."""
@@ -402,12 +398,10 @@ def _format_holdings_summary_as_table(content: str) -> str:
         cleaned = f"{cleaned}\n\n{table_md}"
     return cleaned
 
-
 def _format_inline_emphasis(text: str) -> str:
     text = re.sub(r"\*\*\*(.+?)\*\*\*", r"<strong><em>\1</em></strong>", text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     return text
-
 
 def format_agent_response_labels(content: str, ticker: str = "") -> str:
     """Formats markdown headings and holdings tables in agent responses."""
@@ -445,7 +439,6 @@ def format_agent_response_labels(content: str, ticker: str = "") -> str:
         rendered_lines.append(fline)
 
     return "\n".join(rendered_lines)
-
 
 def render_top_header() -> None:
     st.markdown(
@@ -569,7 +562,6 @@ def render_top_header() -> None:
             unsafe_allow_html=True,
         )
 
-
 def render_card_container(
         content_html: str,
         border_color: str = "rgba(56, 189, 248, 0.35)",
@@ -588,7 +580,6 @@ def render_card_container(
             {content_html}
         </div>
     """
-
 
 def _render_historical_chart_if_needed(msg: dict[str, Any], closes_dict: dict[str, Any], ticker: str) -> None:
     if not msg.get("should_render_chart", False) or not closes_dict:
@@ -611,7 +602,6 @@ def _render_historical_chart_if_needed(msg: dict[str, Any], closes_dict: dict[st
             )
     except Exception as exc:
         logger.warning("Chart rendering failed for %s: %s", ticker, exc)
-
 
 def render_paginated_chat_history() -> None:
     messages = _clean_chat_messages(st.session_state.get("messages", []))
@@ -699,7 +689,6 @@ def render_paginated_chat_history() -> None:
             st.session_state.visible_message_count = visible_count + LOAD_BATCH_SIZE
             st.rerun()
 
-
 def render_rag_search_history(max_report_chars: int = DEFAULT_REPORT_CHAR_LIMIT) -> None:
     """Renders stored non-empty RAG retrieval queries and document snippets in reverse chronological order."""
     rag_history = _clean_rag_history(st.session_state.get("rag_history", []))
@@ -728,7 +717,7 @@ def render_rag_search_history(max_report_chars: int = DEFAULT_REPORT_CHAR_LIMIT)
 
         query_card_html = (
             f"<span style='font-size: 13px; font-weight: 700; color: #38bdf8;'>"
-            f"🔍 Knowledge Search: {query_str}</span>"
+            f"🔍 {query_str}</span>"
         )
         st.markdown(render_card_container(query_card_html, right_icon=cache_icon), unsafe_allow_html=True)
 
